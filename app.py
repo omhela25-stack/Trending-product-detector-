@@ -56,11 +56,15 @@ def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazo
         print(f"⚠️ Error fetching Amazon data for '{keyword}': {e}")
         return pd.DataFrame()
 
-# ------------------------ LSTM HELPER ------------------------
-def predict_trend_lstm(series, future_steps=7):
+# ------------------------ FAST LSTM HELPER ------------------------
+def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=15):
+    """
+    Fast LSTM prediction for short-term trend.
+    """
+    series = series[-(seq_len*3):]  # Use only recent data
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(series.values.reshape(-1,1))
-    seq_len = min(14, len(series)-1)
+
     X, y = [], []
     for i in range(seq_len, len(scaled_data)):
         X.append(scaled_data[i-seq_len:i, 0])
@@ -69,10 +73,10 @@ def predict_trend_lstm(series, future_steps=7):
     X = X.reshape(X.shape[0], X.shape[1], 1)
 
     model = Sequential()
-    model.add(LSTM(50, return_sequences=False, input_shape=(X.shape[1],1)))
+    model.add(LSTM(25, return_sequences=False, input_shape=(X.shape[1],1)))
     model.add(Dense(1))
     model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X, y, epochs=50, batch_size=1, verbose=0)
+    model.fit(X, y, epochs=epochs, batch_size=1, verbose=0)
 
     last_seq = scaled_data[-seq_len:].reshape(1, seq_len, 1)
     predictions = []
@@ -107,7 +111,7 @@ while True:
 
     for kw in trend_data.columns:
         series = trend_data[kw]
-        future_pred = predict_trend_lstm(series, future_steps=7)
+        future_pred = predict_trend_lstm_fast(series, future_steps=7)
         predicted_growth[kw] = future_pred.mean() - series.tail(7).mean()
         combined_series = pd.Series(list(series[-14:])+list(future_pred),
                                     index=pd.date_range(end=pd.Timestamp.today()+pd.Timedelta(days=7), periods=21))
@@ -141,7 +145,6 @@ while True:
         st.markdown(f"### 🏷️ {kw.title()}")
         df = get_amazon_products(api_key, kw, max_results=top_products_count)
         if not df.empty:
-            # Show only top N products
             st.dataframe(df)
             all_products.append(df)
         else:
@@ -155,7 +158,10 @@ while True:
                            file_name="ai_trending_products.csv", mime="text/csv")
 
     st.markdown("---")
-    st.caption(f"Made with ❤️ using Streamlit, Google Trends, Rainforest API, and AI (LSTM forecasting). Auto-refresh every {refresh_interval} minutes.")
+    st.caption(f"Made with ❤️ using Streamlit, Google Trends, Rainforest API, and AI (Fast LSTM forecasting). Auto-refresh every {refresh_interval} minutes.")
 
     # Wait for auto-refresh interval
-    st.info(f
+    st.info(f"Auto-refreshing in {refresh_interval} minutes...")
+    time.sleep(refresh_interval * 60)
+    st.experimental_rerun()
+
