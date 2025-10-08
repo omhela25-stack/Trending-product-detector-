@@ -1,0 +1,8 @@
+streamlit==1.30.0
+pandas==2.1.0
+numpy==1.26.2
+matplotlib==3.8.0
+requests==2.32.0
+pytrends==4.11.0
+tensorflow==2.15.0
+scikit-learn==1.3.0
