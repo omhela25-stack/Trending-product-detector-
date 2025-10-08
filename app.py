@@ -12,7 +12,7 @@ import time
 
 # ------------------------ PAGE CONFIG ------------------------
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
-st.title("🤖 AI-Powered Amazon Trending Product Detector")
+st.title("🤖 AI-Powered Amazon Trending Product Dashboard")
 
 # ------------------------ USER INPUT ------------------------
 default_keywords = "smartwatch, wireless earbuds, sneakers, perfume, power bank"
@@ -24,6 +24,7 @@ st.sidebar.title("Rainforest API Key")
 api_key = st.sidebar.text_input("API Key", type="password")
 
 refresh_interval = st.sidebar.number_input("Auto-refresh interval (minutes)", min_value=1, value=10)
+top_products_count = st.sidebar.number_input("Number of top products per keyword", min_value=1, max_value=10, value=3)
 
 # ------------------------ CACHED AMAZON API HELPER ------------------------
 @st.cache_data(ttl=3600)
@@ -133,13 +134,14 @@ while True:
             colored_keywords.append(f"🔴 {kw} ({growth:.2f})")
     st.markdown("<br>".join(colored_keywords), unsafe_allow_html=True)
 
-    # ------------------------ AMAZON PRODUCTS ------------------------
-    st.subheader("🛒 Amazon Products for AI Predicted Keywords")
+    # ------------------------ AMAZON TOP PRODUCTS PER KEYWORD ------------------------
+    st.subheader("🛒 Top Rising Amazon Products")
     all_products = []
     for kw in trending_keywords.index:
         st.markdown(f"### 🏷️ {kw.title()}")
-        df = get_amazon_products(api_key, kw)
+        df = get_amazon_products(api_key, kw, max_results=top_products_count)
         if not df.empty:
+            # Show only top N products
             st.dataframe(df)
             all_products.append(df)
         else:
@@ -156,6 +158,4 @@ while True:
     st.caption(f"Made with ❤️ using Streamlit, Google Trends, Rainforest API, and AI (LSTM forecasting). Auto-refresh every {refresh_interval} minutes.")
 
     # Wait for auto-refresh interval
-    st.info(f"Auto-refreshing in {refresh_interval} minutes...")
-    time.sleep(refresh_interval * 60)
-    st.experimental_rerun()
+    st.info(f
