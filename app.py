@@ -24,7 +24,7 @@ st.sidebar.title("Rainforest API Key")
 api_key = st.sidebar.text_input("API Key", type="password")
 
 refresh_interval = st.sidebar.number_input("Auto-refresh interval (minutes)", min_value=1, value=10)
-top_products_count = st.sidebar.number_input("Number of top products per keyword", min_value=1, max_value=10, value=3)
+top_products_count = st.sidebar.number_input("Number of top products per keyword", min_value=1, max_value=10, value=5)
 
 # ------------------------ CACHED AMAZON API HELPER ------------------------
 @st.cache_data(ttl=3600)
@@ -46,9 +46,9 @@ def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazo
         items = data["search_results"][:max_results]
         df = pd.DataFrame([{
             "Title": item.get("title"),
-            "Price": item.get("price", {}).get("raw", "N/A"),
-            "Rating": item.get("rating", "N/A"),
-            "Reviews": item.get("ratings_total", "N/A"),
+            "Price": float(item.get("price", {}).get("raw", "0").replace("₹","").replace(",","")) if item.get("price") else np.nan,
+            "Rating": float(item.get("rating", 0)),
+            "Reviews": int(item.get("ratings_total", 0)),
             "Link": item.get("link")
         } for item in items])
         return df
@@ -58,9 +58,6 @@ def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazo
 
 # ------------------------ FAST LSTM HELPER ------------------------
 def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=15):
-    """
-    Fast LSTM prediction for short-term trend.
-    """
     series = series[-(seq_len*3):]  # Use only recent data
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(series.values.reshape(-1,1))
@@ -87,7 +84,7 @@ def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=15):
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1,1))
     return predictions.flatten()
 
-# ------------------------ MAIN LOOP WITH AUTO-REFRESH ------------------------
+# ------------------------ MAIN LOOP ------------------------
 pytrends = TrendReq(hl='en-US', tz=330)
 
 while True:
@@ -117,17 +114,18 @@ while True:
                                     index=pd.date_range(end=pd.Timestamp.today()+pd.Timedelta(days=7), periods=21))
         combined_plot_data[kw] = combined_series
 
-    # ------------------------ COMBINED CURRENT VS PREDICTED CHART ------------------------
+    # ------------------------ COMBINED CURRENT VS PREDICTED CHART WITH SHADE ------------------------
     st.subheader("📊 Current vs Predicted Trend Growth Chart")
     fig, ax = plt.subplots(figsize=(10,5))
     for kw in combined_plot_data.columns:
         ax.plot(combined_plot_data.index, combined_plot_data[kw], label=kw)
-    ax.set_title("Google Trends: Current vs Predicted")
+    ax.axvspan(pd.Timestamp.today(), combined_plot_data.index[-1], color='orange', alpha=0.1, label="Predicted")
+    ax.set_title("Google Trends: Current + Predicted")
     ax.set_ylabel("Interest (0-100)")
     ax.legend()
     st.pyplot(fig)
 
-    # ------------------------ AI PREDICTED TOP KEYWORDS WITH COLOR-CODED ARROWS ------------------------
+    # ------------------------ TOP TRENDING KEYWORDS ------------------------
     trending_keywords = pd.Series(predicted_growth).sort_values(ascending=False).head(5)
     st.subheader("🔥 AI Predicted Top Trending Keywords")
     colored_keywords = []
@@ -138,15 +136,31 @@ while True:
             colored_keywords.append(f"🔴 {kw} ({growth:.2f})")
     st.markdown("<br>".join(colored_keywords), unsafe_allow_html=True)
 
-    # ------------------------ AMAZON TOP PRODUCTS PER KEYWORD ------------------------
-    st.subheader("🛒 Top Rising Amazon Products")
+    # ------------------------ AMAZON TOP PRODUCTS & SCATTER PLOT ------------------------
+    st.subheader("🛒 Top Rising Amazon Products & Value Analysis")
     all_products = []
+
     for kw in trending_keywords.index:
         st.markdown(f"### 🏷️ {kw.title()}")
         df = get_amazon_products(api_key, kw, max_results=top_products_count)
         if not df.empty:
-            st.dataframe(df)
             all_products.append(df)
+            col1, col2 = st.columns([1,1])
+            with col1:
+                st.dataframe(df)
+            with col2:
+                # Scatter plot: Price vs Rating
+                plt.figure(figsize=(5,4))
+                plt.scatter(df['Price'], df['Rating'], s=df['Reviews'], c='green', alpha=0.6)
+                plt.xlabel("Price")
+                plt.ylabel("Rating")
+                plt.title(f"Price vs Rating ({kw.title()})")
+                st.pyplot(plt)
+            # Highlight top 3 value picks
+            value_picks = df.sort_values(['Rating','Price'], ascending=[False,True]).head(3)
+            st.markdown("**💎 Top 3 Value Picks:**")
+            for idx,row in value_picks.iterrows():
+                st.markdown(f"- [{row['Title']}]({row['Link']}) | ₹{row['Price']} | ⭐ {row['Rating']} | {row['Reviews']} reviews")
         else:
             st.warning(f"No products found for '{kw}'.")
 
@@ -158,10 +172,10 @@ while True:
                            file_name="ai_trending_products.csv", mime="text/csv")
 
     st.markdown("---")
-    st.caption(f"Made with ❤️ using Streamlit, Google Trends, Rainforest API, and AI (Fast LSTM forecasting). Auto-refresh every {refresh_interval} minutes.")
+    st.caption(f"Made with ❤️ using Streamlit, Google Trends, Rainforest API, and AI (Fast LSTM). Auto-refresh every {refresh_interval} minutes.")
 
-    # Wait for auto-refresh interval
-    st.info(f"Auto-refreshing in {refresh_interval} minutes...")
-    time.sleep(refresh_interval * 60)
+    # Auto-refresh countdown
+    for remaining in range(refresh_interval*60, 0, -1):
+        st.info(f"Auto-refresh in {remaining//60}m {remaining%60}s", icon="⏳")
+        time.sleep(1)
     st.experimental_rerun()
-
