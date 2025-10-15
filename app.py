@@ -105,7 +105,6 @@ def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10, batch
     model.add(Dense(1))
     model.compile(optimizer='adam', loss='mean_squared_error')
 
-    # ✅ Fixed model.fit with proper closing
     model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
     # Predict future steps
