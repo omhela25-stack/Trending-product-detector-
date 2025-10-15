@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 import time
 
+
 # ------------------------ PAGE CONFIG ------------------------
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
 st.title("🤖 AI-Powered Amazon Trending Product Dashboard (Lightweight Version)")
