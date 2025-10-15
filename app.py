@@ -6,8 +6,8 @@ import requests
 from pytrends.request import TrendReq
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
 import time
 
 # ------------------------ PAGE CONFIG ------------------------
