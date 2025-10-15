@@ -6,8 +6,8 @@ import requests
 from pytrends.request import TrendReq
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
 import time
 
 # ------------------------ PAGE CONFIG ------------------------
@@ -28,7 +28,6 @@ top_products_count = st.sidebar.number_input("Number of top products per keyword
 
 # ------------------------ TEST API KEY ------------------------
 def test_api_key(api_key):
-    """Quickly verify if API key works."""
     try:
         test_url = "https://api.rainforestapi.com/request"
         params = {
@@ -56,7 +55,7 @@ with st.spinner("🔍 Verifying your API key..."):
         st.error("❌ Invalid or expired API key. Please check it and try again.")
         st.stop()
 
-# ------------------------ CACHED AMAZON API HELPER ------------------------
+# ------------------------ AMAZON API HELPER ------------------------
 @st.cache_data(ttl=3600)
 def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazon.in", max_results: int = 5):
     api_url = "https://api.rainforestapi.com/request"
@@ -86,9 +85,8 @@ def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazo
         print(f"⚠️ Error fetching Amazon data for '{keyword}': {e}")
         return pd.DataFrame()
 
-# ------------------------ FAST LSTM HELPER ------------------------
-def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10, batch_size=8):
-    """Predict future trend using a small LSTM model."""
+# ------------------------ LSTM TREND PREDICTION ------------------------
+def predict_trend_lstm(series, future_steps=7, seq_len=14, epochs=10, batch_size=8):
     series = series[-(seq_len*3):]
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(series.values.reshape(-1,1))
@@ -107,7 +105,6 @@ def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10, batch
 
     model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
-    # Predict future steps
     predictions = []
     last_seq = X[-1]
     current_seq = last_seq
@@ -119,7 +116,7 @@ def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10, batch
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1,1)).flatten()
     return predictions
 
-# ------------------------ TREND FETCHING ------------------------
+# ------------------------ GOOGLE TRENDS ------------------------
 @st.cache_data(ttl=3600)
 def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
     pytrends = TrendReq()
@@ -133,16 +130,14 @@ def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
         print(f"⚠️ Error fetching Google Trends: {e}")
     return trends_data
 
-# ------------------------ DISPLAY TRENDS & AMAZON DATA ------------------------
+# ------------------------ DISPLAY RESULTS ------------------------
 for keyword in keywords_list:
     st.subheader(f"📈 Keyword: {keyword}")
 
     trends_df = get_google_trends([keyword], timeframe=timeframe, region=region)
     if not trends_df.empty:
         st.line_chart(trends_df[keyword])
-
-        # Predict next 7 days trend
-        pred = predict_trend_lstm_fast(trends_df[keyword])
+        pred = predict_trend_lstm(trends_df[keyword])
         st.line_chart(pd.DataFrame({f"{keyword} - predicted": pred}))
 
     amazon_df = get_amazon_products(api_key, keyword, max_results=top_products_count)
@@ -156,4 +151,3 @@ for keyword in keywords_list:
 st.info(f"🔄 Auto-refresh every {refresh_interval} minutes.")
 time.sleep(refresh_interval*60)
 st.experimental_rerun()
-
