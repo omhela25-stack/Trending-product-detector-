@@ -87,7 +87,8 @@ def get_amazon_products(api_key: str, keyword: str, country_domain: str = "amazo
         return pd.DataFrame()
 
 # ------------------------ FAST LSTM HELPER ------------------------
-def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10):
+def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10, batch_size=8):
+    """Predict future trend using a small LSTM model."""
     series = series[-(seq_len*3):]
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaled_data = scaler.fit_transform(series.values.reshape(-1,1))
@@ -103,4 +104,56 @@ def predict_trend_lstm_fast(series, future_steps=7, seq_len=14, epochs=10):
     model.add(LSTM(25, input_shape=(X.shape[1], 1)))
     model.add(Dense(1))
     model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X,
+
+    # ✅ Fixed model.fit with proper closing
+    model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
+
+    # Predict future steps
+    predictions = []
+    last_seq = X[-1]
+    current_seq = last_seq
+    for _ in range(future_steps):
+        pred = model.predict(current_seq.reshape(1, seq_len, 1), verbose=0)[0,0]
+        predictions.append(pred)
+        current_seq = np.append(current_seq[1:], [[pred]], axis=0)
+
+    predictions = scaler.inverse_transform(np.array(predictions).reshape(-1,1)).flatten()
+    return predictions
+
+# ------------------------ TREND FETCHING ------------------------
+@st.cache_data(ttl=3600)
+def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
+    pytrends = TrendReq()
+    trends_data = pd.DataFrame()
+    try:
+        pytrends.build_payload(keywords, timeframe=timeframe, geo=region)
+        trends_data = pytrends.interest_over_time()
+        if not trends_data.empty and 'isPartial' in trends_data.columns:
+            trends_data = trends_data.drop(columns=['isPartial'])
+    except Exception as e:
+        print(f"⚠️ Error fetching Google Trends: {e}")
+    return trends_data
+
+# ------------------------ DISPLAY TRENDS & AMAZON DATA ------------------------
+for keyword in keywords_list:
+    st.subheader(f"📈 Keyword: {keyword}")
+
+    trends_df = get_google_trends([keyword], timeframe=timeframe, region=region)
+    if not trends_df.empty:
+        st.line_chart(trends_df[keyword])
+
+        # Predict next 7 days trend
+        pred = predict_trend_lstm_fast(trends_df[keyword])
+        st.line_chart(pd.DataFrame({f"{keyword} - predicted": pred}))
+
+    amazon_df = get_amazon_products(api_key, keyword, max_results=top_products_count)
+    if not amazon_df.empty:
+        st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}':")
+        st.dataframe(amazon_df)
+    else:
+        st.info(f"No products found for '{keyword}'.")
+
+# ------------------------ AUTO-REFRESH ------------------------
+st.info(f"🔄 Auto-refresh every {refresh_interval} minutes.")
+time.sleep(refresh_interval*60)
+st.experimental_rerun()
