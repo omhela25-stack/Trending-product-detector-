@@ -6,8 +6,8 @@ import requests
 from pytrends.request import TrendReq
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
 import time
 
 # ------------------------ PAGE CONFIG ------------------------
@@ -156,3 +156,4 @@ for keyword in keywords_list:
 st.info(f"🔄 Auto-refresh every {refresh_interval} minutes.")
 time.sleep(refresh_interval*60)
 st.experimental_rerun()
+
