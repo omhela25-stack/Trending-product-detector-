@@ -1,11 +1,9 @@
-streamlit
+dash
+dash-bootstrap-components
 pandas
 numpy
 requests
-pytrends
-matplotlib
+tensorflow
 scikit-learn
-tensorflow-cpu
-dash
-dash-bootstrap-components
+gunicorn
 
