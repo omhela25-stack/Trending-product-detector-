@@ -6,3 +6,10 @@ pytrends
 matplotlib
 scikit-learn
 tensorflow-cpu
+dash
+dash-bootstrap-components
+pandas
+numpy
+requests
+tensorflow
+scikit-learn
