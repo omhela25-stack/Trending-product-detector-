@@ -16,10 +16,10 @@ st.title("🛍️ Amazon Trending Products Dashboard")
 SERPAPI_KEY = "4427e6d1d612ec487682027e5fc7ac384c21317cecd0fe503d785c10c6c6595c"
 
 default_keywords = ["smartwatch", "wireless earbuds", "sneakers", "perfume", "power bank"]
-keywords = st.sidebar.multiselect("Select Keywords to Display", default_keywords, default=default_keywords)
+selected_keyword = st.sidebar.selectbox("Select a Keyword", default_keywords)
 amazon_domain = st.sidebar.selectbox("Amazon Domain", ["amazon.in", "amazon.com", "amazon.co.uk"], index=0)
-results_per_keyword = st.sidebar.slider("Products per keyword", 1, 10, 5)
-future_days = st.sidebar.slider("Predict future days (LSTM)", 3, 14, 7)
+results_per_keyword = st.sidebar.slider("Number of Products", 1, 10, 5)
+future_days = st.sidebar.slider("Predict future days", 3, 14, 7)
 
 # ---------------- HELPERS ----------------
 @st.cache_data(ttl=3600)
@@ -38,12 +38,13 @@ def fetch_amazon_products(keyword, serpapi_key, amazon_domain="amazon.in", num_r
         results = data.get("organic_results", []) or data.get("search_results", [])
         rows = []
         for item in results[:num_results]:
+            image = item.get("thumbnail") or item.get("image") or "https://via.placeholder.com/150"
             rows.append({
                 "title": item.get("title") or item.get("product_title") or "Unnamed Product",
                 "price_raw": item.get("price") or item.get("price_text") or "N/A",
                 "rating": item.get("rating", round(np.random.uniform(3.5,5.0),1)),
                 "reviews": item.get("reviews", np.random.randint(100,10000)),
-                "image": item.get("thumbnail") or item.get("image") or "https://via.placeholder.com/150",
+                "image": image,
                 "link": item.get("link") or "#"
             })
         return pd.DataFrame(rows)
@@ -69,16 +70,16 @@ def predict_trend_placeholder(n=future_days):
     return np.round(np.random.uniform(0.5,1.0,size=n),2)
 
 # ---------------- DISPLAY ----------------
-for kw in keywords:
-    st.markdown(f"## 🔎 {kw.title()}")
-    products_df = fetch_amazon_products(kw, SERPAPI_KEY, amazon_domain, results_per_keyword)
-    cols = st.columns(1)
-    for idx, row in products_df.iterrows():
-        with st.container():
-            col1, col2, col3 = st.columns([1,3,1])
-            col1.image(row["image"], width=120)
-            col2.markdown(f"**[{row['title']}]({row['link']})**")
-            col2.caption(f"💰 {row['price_raw']} | ⭐ {row['rating']} | 🗳️ {row['reviews']} reviews")
-            # predictions
-            pred = predict_trend_placeholder(future_days)
-            col3.line_chart(pred)
+st.markdown(f"## 🔎 {selected_keyword.title()}")
+
+products_df = fetch_amazon_products(selected_keyword, SERPAPI_KEY, amazon_domain, results_per_keyword)
+
+for idx, row in products_df.iterrows():
+    with st.container():
+        col1, col2, col3 = st.columns([1,3,2])
+        col1.image(row["image"], width=150)
+        col2.markdown(f"**[{row['title']}]({row['link']})**")
+        col2.caption(f"💰 {row['price_raw']} | ⭐ {row['rating']} | 🗳️ {row['reviews']} reviews")
+        # Trend prediction placeholder
+        pred = predict_trend_placeholder(future_days)
+        col3.line_chart(pred)
