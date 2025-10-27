@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import requests
 from pytrends.request import TrendReq
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
@@ -22,11 +21,13 @@ timeframe = st.selectbox("Timeframe", ["today 3-m", "today 12-m"], index=0)
 
 st.sidebar.title("Rainforest API Key")
 api_key = st.sidebar.text_input("API Key", type="password")
-top_products_count = st.sidebar.number_input("Number of top products per keyword", min_value=1, max_value=10, value=5)
+top_products_count = st.sidebar.number_input(
+    "Number of top products per keyword", min_value=1, max_value=10, value=5
+)
 
 # ------------------------ TEST API KEY ------------------------
 def test_api_key(api_key):
-    """Verify that the Rainforest API key is valid."""
+    """Verify Rainforest API key."""
     try:
         r = requests.get(
             "https://api.rainforestapi.com/request",
@@ -171,4 +172,7 @@ for keyword in keywords_list:
 
     amazon_df = get_amazon_products(api_key, keyword, max_results=top_products_count)
     if not amazon_df.empty:
-        st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}'
+        st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}':")
+        st.dataframe(amazon_df)
+    else:
+        st.info(f"No products found for '{keyword}'.")
