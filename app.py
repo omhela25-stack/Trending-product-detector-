@@ -6,7 +6,6 @@ import requests
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
-import time
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Amazon Trending Products", layout="wide", page_icon="🛍️")
@@ -37,8 +36,13 @@ def fetch_amazon_products(keyword, serpapi_key, amazon_domain="amazon.in", num_r
         data = r.json()
         results = data.get("organic_results", []) or data.get("search_results", [])
         rows = []
+
         for item in results[:num_results]:
-            image = item.get("thumbnail") or item.get("image") or "https://via.placeholder.com/150"
+            # Correct image extraction
+            image = item.get("thumbnail") or \
+                    (item.get("product_images")[0]["link"] if "product_images" in item and item["product_images"] else None) or \
+                    "https://via.placeholder.com/150"
+
             rows.append({
                 "title": item.get("title") or item.get("product_title") or "Unnamed Product",
                 "price_raw": item.get("price") or item.get("price_text") or "N/A",
@@ -48,7 +52,9 @@ def fetch_amazon_products(keyword, serpapi_key, amazon_domain="amazon.in", num_r
                 "link": item.get("link") or "#"
             })
         return pd.DataFrame(rows)
-    except Exception:
+
+    except Exception as e:
+        print("SerpApi fetch error:", e)
         # fallback demo products
         imgs = [
             "https://m.media-amazon.com/images/I/61m0lZtZfYL._AC_UL320_.jpg",
