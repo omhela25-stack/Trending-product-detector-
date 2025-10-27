@@ -1,8 +1,8 @@
-dash
-dash-bootstrap-components
-pandas
-numpy
-requests
-tensorflow-cpu
-scikit-learn
-gunicorn
+dash==2.17.1
+dash-bootstrap-components==1.6.0
+pandas==2.2.2
+numpy==1.26.4
+requests==2.32.3
+tensorflow-cpu==2.17.0
+scikit-learn==1.5.1
+gunicorn==22.0.0
