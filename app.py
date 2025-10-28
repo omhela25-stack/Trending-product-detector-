@@ -68,8 +68,14 @@ def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
 def fetch_amazon_products(keyword, num_results=9):
     products = []
     for i in range(num_results):
+        # Simulating realistic product names
+        product_names = [
+            "Apple iPhone 16", "Samsung Galaxy S24", "Xiaomi 11", 
+            "OnePlus 12", "Realme X5", "Sony WH-1000XM5", 
+            "Apple Watch Series 9", "Nike Air Max 2025", "Canon EOS R6"
+        ]
         products.append({
-            "title": f"{keyword} Model {i+1}",
+            "title": product_names[i % len(product_names)],
             "price": np.random.randint(1000, 5000),
             "thumbnail": "https://via.placeholder.com/150",
             "link": "#"
@@ -92,6 +98,7 @@ if predict_btn:
             # Historical sales graph
             fig_sales = go.Figure()
             fig_sales.add_trace(go.Scatter(
+                x=list(range(1, len(sales_data)+1)),
                 y=sales_data,
                 mode='lines+markers',
                 name='Historical Sales'
@@ -109,6 +116,7 @@ if predict_btn:
             if pred.size > 0:
                 fig_pred = go.Figure()
                 fig_pred.add_trace(go.Scatter(
+                    x=list(range(1, len(pred)+1)),
                     y=pred,
                     mode='lines+markers',
                     name='Predicted Sales'
@@ -136,4 +144,4 @@ if predict_btn:
 
 # ------------------------ TEAM CREDITS ------------------------
 st.markdown("---")
-st.markdown("<h4 style='text-align:center; color:lightblue;'>Team: OM | Swati | Jyoti | Srishti</h4>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align:center; color:lightblue;'>Team: OM (AI Model) | Swati (Feature Engineering) | Jyoti (Frontend) | Srishti (Frontend)</h4>", unsafe_allow_html=True)
