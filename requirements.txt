@@ -4,5 +4,3 @@ numpy
 requests
 scikit-learn
 pytrends
-
-
