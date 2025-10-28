@@ -1,109 +1,91 @@
 import streamlit as st
-import requests
+import pandas as pd
 import numpy as np
+from pytrends.request import TrendReq
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
-from sklearn.preprocessing import MinMaxScaler
+import time
 
-# ----------------------------
-# 🔑 SerpApi Key
-# ----------------------------
-SERPAPI_KEY = "4427e6d1d612ec487682027e5fc7ac384c21317cecd0fe503d785c10c6c6595c"
+# ------------------------ PAGE CONFIG ------------------------
+st.set_page_config(page_title="AI Trending Product Detector", layout="wide")
+st.title("🤖 AI-Powered Trending Product Dashboard (No API Key Needed)")
 
-# ----------------------------
-# 📦 Fetch Amazon Products via SerpApi
-# ----------------------------
-def fetch_amazon_products(keyword, num_results=6):
-    url = "https://serpapi.com/search"
-    params = {
-        "engine": "amazon",
-        "amazon_domain": "amazon.in",
-        "q": keyword,
-        "api_key": SERPAPI_KEY,
-    }
+# ------------------------ USER INPUT ------------------------
+default_keywords = "smartwatch, wireless earbuds, sneakers, perfume, power bank"
+keywords = st.text_input("Enter product keywords (comma-separated):", default_keywords)
+keywords_list = [k.strip() for k in keywords.split(",") if k.strip()]
+region = st.selectbox("Region", ["Worldwide", "IN", "US"], index=1)
+timeframe = st.selectbox("Timeframe", ["today 3-m", "today 12-m"], index=0)
 
-    response = requests.get(url, params=params)
-    data = response.json()
+# ------------------------ GOOGLE TRENDS ------------------------
+@st.cache_data(ttl=3600)
+def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
+    """Fetch Google Trends data safely with retries."""
+    pytrends = TrendReq()
+    trends_data = pd.DataFrame()
 
-    products = []
-    for result in data.get("organic_results", [])[:num_results]:
-        products.append({
-            "title": result.get("title", "No title"),
-            "price": result.get("price", "N/A"),
-            "thumbnail": result.get("thumbnail", ""),
-            "link": result.get("link", "#")
-        })
-    return products
+    for attempt in range(3):
+        try:
+            pytrends.build_payload(keywords, timeframe=timeframe, geo=region)
+            trends_data = pytrends.interest_over_time()
+            if not trends_data.empty and "isPartial" in trends_data.columns:
+                trends_data = trends_data.drop(columns=["isPartial"])
+            break
+        except Exception:
+            time.sleep(2)
+            continue
 
-# ----------------------------
-# 🧠 Dummy Sales Trend Simulation + LSTM Prediction
-# ----------------------------
-def generate_sales_data(n=60):
-    np.random.seed(42)
-    base = np.linspace(50, 200, n)
-    noise = np.random.normal(0, 5, n)
-    return base + noise
+    return trends_data
 
-def lstm_predict(sales):
-    data = np.array(sales).reshape(-1, 1)
+# ------------------------ LSTM TREND PREDICTION ------------------------
+def predict_trend_lstm(series, future_steps=7, seq_len=14, epochs=5, batch_size=8):
+    """Predict short-term trend using LSTM."""
+    if len(series) < seq_len + 2:
+        return np.array([])
+
+    series = series[-(seq_len * 3):]
     scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(data)
+    scaled_data = scaler.fit_transform(series.values.reshape(-1, 1))
 
     X, y = [], []
-    seq_len = 5
-    for i in range(len(scaled) - seq_len):
-        X.append(scaled[i:i+seq_len])
-        y.append(scaled[i+seq_len])
+    for i in range(seq_len, len(scaled_data)):
+        X.append(scaled_data[i - seq_len:i, 0])
+        y.append(scaled_data[i, 0])
     X, y = np.array(X), np.array(y)
+    X = X.reshape(X.shape[0], X.shape[1], 1)
 
-    model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=(seq_len, 1)),
-        LSTM(32),
-        Dense(1)
-    ])
+    model = Sequential()
+    model.add(LSTM(25, input_shape=(X.shape[1], 1)))
+    model.add(Dense(1))
     model.compile(optimizer="adam", loss="mse")
-    model.fit(X, y, epochs=10, batch_size=4, verbose=0)
+    model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
-    next_input = scaled[-seq_len:].reshape(1, seq_len, 1)
-    pred = model.predict(next_input, verbose=0)
-    pred_inv = scaler.inverse_transform(pred)
-    return float(pred_inv[0][0])
+    predictions = []
+    current_seq = X[-1]
+    for _ in range(future_steps):
+        pred = model.predict(current_seq.reshape(1, seq_len, 1), verbose=0)[0, 0]
+        predictions.append(pred)
+        current_seq = np.append(current_seq[1:], [[pred]], axis=0)
 
-# ----------------------------
-# 🎨 Streamlit UI
-# ----------------------------
-st.set_page_config(page_title="Amazon Trending Predictor", layout="wide")
+    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
 
-st.title("🛍️ Amazon Trending Product Predictor")
+# ------------------------ DISPLAY RESULTS ------------------------
+for keyword in keywords_list:
+    st.subheader(f"📈 Keyword: {keyword}")
 
-keyword = st.selectbox(
-    "Select Keyword:",
-    ["Smartphone", "Laptop", "Headphones", "Smartwatch", "Shoes", "Camera"]
-)
+    trends_df = get_google_trends([keyword], timeframe=timeframe, region=region)
 
-if st.button("Fetch & Predict"):
-    with st.spinner("Fetching products and predicting trends..."):
-        products = fetch_amazon_products(keyword)
-        if not products:
-            st.warning("No products found. Try again later or with another keyword.")
-        else:
-            for p in products:
-                sales_data = generate_sales_data()
-                try:
-                    prediction = lstm_predict(sales_data)
-                    trend_text = f"📈 Predicted next demand: **{prediction:.2f} units**"
-                except Exception as e:
-                    trend_text = f"⚠️ Prediction unavailable ({e})"
+    if trends_df.empty:
+        st.warning(f"No Google Trends data found for '{keyword}' in {region}.")
+        continue
 
-                st.markdown("---")
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    if p["thumbnail"]:
-                        st.image(p["thumbnail"], use_container_width=True)
-                    else:
-                        st.image("https://via.placeholder.com/200", use_container_width=True)
-                with col2:
-                    st.subheader(p["title"])
-                    st.write(f"💰 **Price:** {p['price']}")
-                    st.write(trend_text)
-                    st.link_button("View on Amazon", p["link"])
+    st.line_chart(trends_df[keyword], height=200)
+
+    pred = predict_trend_lstm(trends_df[keyword])
+    if pred.size > 0:
+        st.line_chart(pd.DataFrame({f"{keyword} - Predicted Trend": pred}))
+    else:
+        st.info("Not enough data for prediction.")
+
+st.success("✅ Analysis Complete — AI Predictions Generated Successfully!")
