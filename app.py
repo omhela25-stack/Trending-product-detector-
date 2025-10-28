@@ -17,23 +17,24 @@ selected_categories = st.sidebar.multiselect("Choose product categories:", categ
 st.sidebar.header("Prediction Settings")
 future_days = st.sidebar.slider("Days to predict trend for:", 1, 14, 7)
 seq_len = st.sidebar.slider("LSTM sequence length:", 5, 30, 14)
+num_products = st.sidebar.slider("Number of top products to show:", 3, 10, 5)
 
 predict_btn = st.sidebar.button("Predict Trends")
 
 # ------------------------ HELPER FUNCTIONS ------------------------
 def generate_sales_data(n=60):
-    """Simulate dummy sales data."""
+    """Simulate dummy sales trend data."""
     np.random.seed(42)
     base = np.linspace(50, 200, n)
-    noise = np.random.normal(0, 5, n)
+    noise = np.random.normal(0, 10, n)
     return base + noise
 
-def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
-    """Predict trend using LSTM."""
+def lstm_predict(series, future_steps=7, seq_len=14, epochs=5, batch_size=4):
+    """Predict product demand trend using LSTM."""
     if len(series) < seq_len + 2:
         return np.array([])
 
-    data = np.array(series).reshape(-1, 1)
+    data = np.array(series).reshape(-1,1)
     scaler = MinMaxScaler()
     scaled = scaler.fit_transform(data)
 
@@ -42,10 +43,10 @@ def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
         X.append(scaled[i:i + seq_len])
         y.append(scaled[i + seq_len])
     X, y = np.array(X), np.array(y)
-    X = X.reshape(X.shape[0], X.shape[1], 1)
+    X = X.reshape(X.shape[0], X.shape[1],1)
 
     model = Sequential()
-    model.add(LSTM(64, return_sequences=True, input_shape=(seq_len, 1)))
+    model.add(LSTM(64, return_sequences=True, input_shape=(seq_len,1)))
     model.add(LSTM(32))
     model.add(Dense(1))
     model.compile(optimizer="adam", loss="mse")
@@ -54,65 +55,52 @@ def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
     predictions = []
     current_seq = X[-1]
     for _ in range(future_steps):
-        pred = model.predict(current_seq.reshape(1, seq_len, 1), verbose=0)[0, 0]
+        pred = model.predict(current_seq.reshape(1, seq_len, 1), verbose=0)[0,0]
         predictions.append(pred)
         current_seq = np.append(current_seq[1:], [[pred]], axis=0)
 
-    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
+    return scaler.inverse_transform(np.array(predictions).reshape(-1,1)).flatten()
 
-def fetch_amazon_products(keyword, num_results=5):
-    """Fetch dummy Amazon product data (replace with real API if available)."""
+def generate_products(category, num_products=5):
+    """Generate dummy product data per category with random prices & predicted demand."""
     products = []
-    for i in range(num_results):
+    for i in range(num_products):
+        sales = generate_sales_data()
+        pred_demand = lstm_predict(sales, future_steps=future_days, seq_len=seq_len)
+        avg_pred = pred_demand.mean() if pred_demand.size>0 else np.random.randint(50,200)
         products.append({
-            "title": f"{keyword} Product {i+1}",
-            "price": np.random.randint(1000, 5000),
-            "thumbnail": "https://via.placeholder.com/150",
-            "link": "#"
+            "Name": f"{category} Product {i+1}",
+            "Price (₹)": np.random.randint(1000, 100000),
+            "Predicted Demand": round(avg_pred,2)
         })
-    return products
+    # Sort by predicted demand descending
+    products = sorted(products, key=lambda x: x["Predicted Demand"], reverse=True)
+    return pd.DataFrame(products)
 
 # ------------------------ MAIN DISPLAY ------------------------
 if predict_btn:
-    for keyword in selected_categories:
-        st.subheader(f"📈 Category: {keyword}")
+    for category in selected_categories:
+        st.subheader(f"📈 Top Trending Products - {category}")
 
-        # Simulate trend data
-        sales_data = generate_sales_data()
-        st.line_chart(sales_data, height=200, use_container_width=True)
+        products_df = generate_products(category, num_products=num_products)
+        st.dataframe(products_df, use_container_width=True)
 
-        # Predict trend
-        pred = lstm_predict(sales_data, future_steps=future_days, seq_len=seq_len)
-        if pred.size > 0:
-            st.line_chart(pred, height=200, use_container_width=True)
-        else:
-            st.info("Not enough data to predict trend.")
-
-        # ------------------------ TEAM INFO (VISUAL CARDS) ------------------------
-        st.markdown("### 👥 Project Team")
-        team_cols = st.columns(4)
-        team_data = [
-            {"Name": "Om", "Role": "AI Model Development", "Color": "#FFB347", "Icon": "🤖"},
-            {"Name": "Swati", "Role": "Feature Engineering", "Color": "#77DD77", "Icon": "🛠️"},
-            {"Name": "Jyoti", "Role": "Frontend Development", "Color": "#89CFF0", "Icon": "💻"},
-            {"Name": "Srishti", "Role": "Frontend Development", "Color": "#FF6961", "Icon": "🎨"}
-        ]
-        for col, member in zip(team_cols, team_data):
-            with col:
-                st.markdown(
-                    f"<div style='background-color:{member['Color']}; padding:15px; border-radius:10px; text-align:center'>"
-                    f"<h3>{member['Icon']} {member['Name']}</h3>"
-                    f"<p><i>{member['Role']}</i></p>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
-        # ------------------------ DISPLAY PRODUCTS ------------------------
-        products = fetch_amazon_products(keyword, num_results=5)
-        product_cols = st.columns(5)
-        for col, p in zip(product_cols, products):
-            with col:
-                st.image(p["thumbnail"], use_column_width=True)
-                st.write(p["title"])
-                st.write(f"💰 Price: ₹{p['price']}")
-                st.markdown(f"[View Product]({p['link']})")
+    # ------------------------ TEAM INFO (SIDE-BY-SIDE) ------------------------
+    st.markdown("---")
+    st.markdown("### 👥 Project Team")
+    team_cols = st.columns(4)
+    team_data = [
+        {"Name": "Om", "Role": "AI Model Development", "Color": "#FFB347", "Icon": "🤖"},
+        {"Name": "Swati", "Role": "Feature Engineering", "Color": "#77DD77", "Icon": "🛠️"},
+        {"Name": "Jyoti", "Role": "Frontend Development", "Color": "#89CFF0", "Icon": "💻"},
+        {"Name": "Srishti", "Role": "Frontend Development", "Color": "#FF6961", "Icon": "🎨"}
+    ]
+    for col, member in zip(team_cols, team_data):
+        with col:
+            st.markdown(
+                f"<div style='background-color:{member['Color']}; padding:15px; border-radius:10px; text-align:center'>"
+                f"<h3>{member['Icon']} {member['Name']}</h3>"
+                f"<p><i>{member['Role']}</i></p>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
