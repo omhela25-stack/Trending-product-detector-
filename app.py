@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
@@ -10,28 +9,6 @@ import time
 # ------------------------ PAGE CONFIG ------------------------
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
 st.title("🤖 AI-Powered Amazon Trending Product Dashboard")
-# ------------------------ TEAM INFO ------------------------
-# ------------------------ TEAM INFO (Middle / End) ------------------------
-st.markdown("---")
-st.subheader("👥 Project Team")
-
-team_data = [
-    {"Name": "Om", "Role": "AI Model Development", "Details": "Responsible for building the LSTM prediction engine."},
-    {"Name": "Jyoti", "Role": "Frontend Development", "Details": "Handles Streamlit UI, charts, and product display."},
-    {"Name": "Srishti", "Role": "Frontend Development", "Details": "Collaborates on UI/UX, layout, and user interactivity."},
-    {"Name": "Swati", "Role": "Feature Engineering", "Details": "Prepares and simulates sales data, sequences for LSTM, preprocessing."}
-]
-
-for member in team_data:
-    st.markdown(f"**{member['Name']}** - {member['Role']}")
-    st.markdown(f"*{member['Details']}*")
-    st.markdown("---")
-
-
-for member in team_data:
-    st.sidebar.markdown(f"**{member['Name']}** - {member['Role']}")
-    st.sidebar.markdown(f"*{member['Details']}*")
-    st.sidebar.markdown("---")
 
 # ------------------------ USER INPUT ------------------------
 categories = ["Smartphone", "Laptop", "Headphones", "Smartwatch", "Shoes", "Camera"]
@@ -121,3 +98,19 @@ if predict_btn:
                 st.write(p["title"])
                 st.write(f"💰 Price: ₹{p['price']}")
                 st.markdown(f"[View Product]({p['link']})")
+
+# ------------------------ TEAM INFO ------------------------
+st.markdown("---")
+st.subheader("👥 Project Team")
+
+team_data = [
+    {"Name": "Om", "Role": "AI Model Development", "Details": "Responsible for building the LSTM prediction engine."},
+    {"Name": "Jyoti", "Role": "Frontend Development", "Details": "Handles Streamlit UI, charts, and product display."},
+    {"Name": "Srishti", "Role": "Frontend Development", "Details": "Collaborates on UI/UX, layout, and user interactivity."},
+    {"Name": "Swati", "Role": "Feature Engineering", "Details": "Prepares and simulates sales data, sequences for LSTM, preprocessing."}
+]
+
+for member in team_data:
+    st.markdown(f"**{member['Name']}** - {member['Role']}")
+    st.markdown(f"*{member['Details']}*")
+    st.markdown("---")
