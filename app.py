@@ -17,7 +17,7 @@ selected_categories = st.sidebar.multiselect("Choose product categories:", categ
 st.sidebar.header("Prediction Settings")
 future_days = st.sidebar.slider("Days to predict trend for:", 1, 14, 7)
 seq_len = st.sidebar.slider("LSTM sequence length:", 5, 30, 14)
-num_products = st.sidebar.slider("Number of top products to show:", 3, 10, 5)
+num_products = st.sidebar.slider("Number of top products per category:", 3, 10, 5)
 
 predict_btn = st.sidebar.button("Predict Trends")
 
@@ -62,7 +62,7 @@ def lstm_predict(series, future_steps=7, seq_len=14, epochs=5, batch_size=4):
     return scaler.inverse_transform(np.array(predictions).reshape(-1,1)).flatten()
 
 def generate_products(category, num_products=5):
-    """Generate dummy product data per category with random prices & predicted demand."""
+    """Generate dummy product data per category with images, prices & predicted demand."""
     products = []
     for i in range(num_products):
         sales = generate_sales_data()
@@ -70,20 +70,30 @@ def generate_products(category, num_products=5):
         avg_pred = pred_demand.mean() if pred_demand.size>0 else np.random.randint(50,200)
         products.append({
             "Name": f"{category} Product {i+1}",
-            "Price (₹)": np.random.randint(1000, 100000),
-            "Predicted Demand": round(avg_pred,2)
+            "Price": np.random.randint(1000, 50000),
+            "Predicted Demand": round(avg_pred,2),
+            "Thumbnail": "https://via.placeholder.com/150",
+            "Link": "#"
         })
     # Sort by predicted demand descending
     products = sorted(products, key=lambda x: x["Predicted Demand"], reverse=True)
-    return pd.DataFrame(products)
+    return products
 
 # ------------------------ MAIN DISPLAY ------------------------
 if predict_btn:
     for category in selected_categories:
         st.subheader(f"📈 Top Trending Products - {category}")
+        products = generate_products(category, num_products=num_products)
 
-        products_df = generate_products(category, num_products=num_products)
-        st.dataframe(products_df, use_container_width=True)
+        # Display in columns as cards
+        cols = st.columns(min(len(products), 5))
+        for col, p in zip(cols, products):
+            with col:
+                st.image(p["Thumbnail"], use_column_width=True)
+                st.markdown(f"**{p['Name']}**")
+                st.markdown(f"💰 Price: ₹{p['Price']}")
+                st.markdown(f"📊 Predicted Demand: {p['Predicted Demand']}")
+                st.markdown(f"[View Product]({p['Link']})")
 
     # ------------------------ TEAM INFO (SIDE-BY-SIDE) ------------------------
     st.markdown("---")
