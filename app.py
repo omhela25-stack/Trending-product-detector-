@@ -95,9 +95,9 @@ def fetch_amazon_products(keyword, num_results=5):
     }
     products = []
     names = product_names.get(keyword, [f"{keyword} Product {i+1}" for i in range(num_results)])
-    for name in names[:num_results]:
+    for idx, name in enumerate(names[:num_results]):
         products.append({
-            "title": name,
+            "title": f"{idx+1}. {name}",
             "price": np.random.randint(30000, 150000) if keyword in ["Smartphone", "Laptop"] else np.random.randint(2000, 50000),
             "thumbnail": "https://via.placeholder.com/150",
             "link": "#"
@@ -109,36 +109,35 @@ if predict_btn:
     for keyword in selected_categories:
         st.subheader(f"📈 Category: {keyword}")
 
-        # Create 2-column layout: left for charts, right for products
+        # Left: Charts, Right: Products
         chart_col, product_col = st.columns([3, 1])
 
-        # Simulate trend data
+        # Generate sales data
         sales_data = generate_sales_data()
-        with chart_col:
-            st.line_chart(pd.DataFrame({
-                "Day": np.arange(1, len(sales_data)+1),
-                "Sales": sales_data
-            }).set_index("Day"), height=250, use_container_width=True)
-            st.write("**Actual Sales Trend**")
+        days = np.arange(1, len(sales_data)+1)
 
-        # Predict trend
+        # Actual Sales Trend
+        with chart_col:
+            df_actual = pd.DataFrame({"Day": days, "Actual Sales": sales_data}).set_index("Day")
+            st.line_chart(df_actual, height=250, use_container_width=True)
+            st.write("**Actual Sales Trend**")
+            st.write("X-axis: Day, Y-axis: Sales")
+
+        # Predicted Trend
         pred = lstm_predict(sales_data, future_steps=future_days, seq_len=seq_len)
         with chart_col:
             if pred.size > 0:
-                st.line_chart(pd.DataFrame({
-                    "Day": np.arange(len(sales_data)+1, len(sales_data)+1+len(pred)),
-                    "Predicted Sales": pred
-                }).set_index("Day"), height=250, use_container_width=True)
-                st.write("**Predicted Trend**")
+                df_pred = pd.DataFrame({"Day": np.arange(len(sales_data)+1, len(sales_data)+1+len(pred)), 
+                                        "Predicted Sales": pred}).set_index("Day")
+                st.line_chart(df_pred, height=250, use_container_width=True)
+                st.write("**Predicted Sales Trend**")
+                st.write("X-axis: Day, Y-axis: Predicted Sales")
             else:
                 st.info("Not enough data to predict trend.")
 
-        # Display products on the right
-        with product_col:
+        # Display products below charts on left side
+        with chart_col:
             st.write(f"🛒 Top Products for {keyword}:")
             products = fetch_amazon_products(keyword, num_results=5)
             for p in products:
-                st.image(p["thumbnail"], use_column_width=True)
-                st.write(p["title"])
-                st.write(f"💰 Price: ₹{p['price']}")
-                st.markdown(f"[View Product]({p['link']})")
+                st.write(f"{p['title']} - 💰 Price: ₹{p['price']}")
