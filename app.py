@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pytrends.request import TrendReq
-from prophet import Prophet
+from sklearn.linear_model import LinearRegression
 import time
 
 # ------------------------ PAGE CONFIG ------------------------
@@ -33,18 +33,21 @@ def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
             continue
     return trends_data
 
-# ------------------------ FORECASTING WITH PROPHET ------------------------
-def predict_trend_prophet(series, future_steps=7):
-    """Predict short-term trend using Prophet."""
+# ------------------------ SIMPLE LINEAR FORECAST ------------------------
+def predict_trend_linear(series, future_steps=7):
+    """Predict short-term trend using linear regression."""
     if len(series) < 2:
-        return pd.Series([])
+        return []
 
-    df = pd.DataFrame({"ds": series.index, "y": series.values})
-    model = Prophet(daily_seasonality=True, yearly_seasonality=False, weekly_seasonality=False)
-    model.fit(df)
-    future = model.make_future_dataframe(periods=future_steps)
-    forecast = model.predict(future)
-    return forecast["yhat"][-future_steps:].values
+    y = series.values
+    X = np.arange(len(y)).reshape(-1, 1)
+
+    model = LinearRegression()
+    model.fit(X, y)
+
+    X_future = np.arange(len(y), len(y) + future_steps).reshape(-1, 1)
+    y_future = model.predict(X_future)
+    return y_future
 
 # ------------------------ DISPLAY RESULTS ------------------------
 for keyword in keywords_list:
@@ -58,7 +61,7 @@ for keyword in keywords_list:
 
     st.line_chart(trends_df[keyword], height=200)
 
-    pred = predict_trend_prophet(trends_df[keyword])
+    pred = predict_trend_linear(trends_df[keyword])
     if len(pred) > 0:
         st.line_chart(pd.DataFrame({f"{keyword} - Predicted Trend": pred}))
     else:
