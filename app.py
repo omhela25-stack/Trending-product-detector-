@@ -15,8 +15,8 @@ st.title("🤖 AI-Powered Trending Product Dashboard (No API Key Needed)")
 default_keywords = "smartwatch, wireless earbuds, sneakers, perfume, power bank"
 keywords = st.text_input("Enter product keywords (comma-separated):", default_keywords)
 keywords_list = [k.strip() for k in keywords.split(",") if k.strip()]
-region = st.selectbox("Region", ["Worldwide", "IN", "US"], index=1)
-timeframe = st.selectbox("Timeframe", ["today 3-m", "today 12-m"], index=0)
+region = st.selectbox("🌍 Region", ["Worldwide", "IN", "US"], index=1)
+timeframe = st.selectbox("🕒 Timeframe", ["today 3-m", "today 12-m"], index=0)
 
 # ------------------------ GOOGLE TRENDS ------------------------
 @st.cache_data(ttl=3600)
@@ -24,10 +24,9 @@ def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
     """Fetch Google Trends data safely with retries."""
     pytrends = TrendReq()
     trends_data = pd.DataFrame()
-
     for attempt in range(3):
         try:
-            pytrends.build_payload(keywords, timeframe=timeframe, geo=region)
+            pytrends.build_payload(keywords, timeframe=timeframe, geo=region if region != "Worldwide" else "")
             trends_data = pytrends.interest_over_time()
             if not trends_data.empty and "isPartial" in trends_data.columns:
                 trends_data = trends_data.drop(columns=["isPartial"])
@@ -35,7 +34,6 @@ def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
         except Exception:
             time.sleep(2)
             continue
-
     return trends_data
 
 # ------------------------ LSTM TREND PREDICTION ------------------------
@@ -55,9 +53,10 @@ def predict_trend_lstm(series, future_steps=7, seq_len=14, epochs=5, batch_size=
     X, y = np.array(X), np.array(y)
     X = X.reshape(X.shape[0], X.shape[1], 1)
 
-    model = Sequential()
-    model.add(LSTM(25, input_shape=(X.shape[1], 1)))
-    model.add(Dense(1))
+    model = Sequential([
+        LSTM(25, input_shape=(X.shape[1], 1)),
+        Dense(1)
+    ])
     model.compile(optimizer="adam", loss="mse")
     model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
@@ -85,7 +84,9 @@ for keyword in keywords_list:
     pred = predict_trend_lstm(trends_df[keyword])
     if pred.size > 0:
         st.line_chart(pd.DataFrame({f"{keyword} - Predicted Trend": pred}))
+        st.success(f"✅ {keyword.capitalize()} shows a rising trend prediction!")
     else:
-        st.info("Not enough data for prediction.")
+        st.info("⚠️ Not enough data for LSTM prediction.")
 
-st.success("✅ Analysis Complete — AI Predictions Generated Successfully!")
+st.markdown("---")
+st.caption("⚡ Powered by Google Trends + TensorFlow | Built for Streamlit Cloud")
