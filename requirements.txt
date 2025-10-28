@@ -3,4 +3,4 @@ pandas
 numpy
 pytrends
 scikit-learn
-tensorflow-cpu==2.13.0
+prophet
