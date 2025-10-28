@@ -1,6 +1,6 @@
-streamlit
+streamlit==1.29.0
 pandas
 numpy
 pytrends
 scikit-learn
-tensorflow
+tensorflow-cpu==2.13.0
