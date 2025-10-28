@@ -100,17 +100,43 @@ if predict_btn:
                 st.markdown(f"[View Product]({p['link']})")
 
 # ------------------------ TEAM INFO ------------------------
-st.markdown("---")
-st.subheader("👥 Project Team")
+# ------------------------ MAIN DISPLAY ------------------------
+if predict_btn:
+    for keyword in selected_categories:
+        st.subheader(f"📈 Category: {keyword}")
 
-team_data = [
-    {"Name": "Om", "Role": "AI Model Development", "Details": "Responsible for building the LSTM prediction engine."},
-    {"Name": "Jyoti", "Role": "Frontend Development", "Details": "Handles Streamlit UI, charts, and product display."},
-    {"Name": "Srishti", "Role": "Frontend Development", "Details": "Collaborates on UI/UX, layout, and user interactivity."},
-    {"Name": "Swati", "Role": "Feature Engineering", "Details": "Prepares and simulates sales data, sequences for LSTM, preprocessing."}
-]
+        # Simulate trend data
+        sales_data = generate_sales_data()
+        st.line_chart(sales_data, height=200, use_container_width=True)
 
-for member in team_data:
-    st.markdown(f"**{member['Name']}** - {member['Role']}")
-    st.markdown(f"*{member['Details']}*")
-    st.markdown("---")
+        # Predict trend
+        pred = lstm_predict(sales_data, future_steps=future_days, seq_len=seq_len)
+        if pred.size > 0:
+            st.line_chart(pred, height=200, use_container_width=True)
+        else:
+            st.info("Not enough data to predict trend.")
+
+        # ------------------------ TEAM INFO (IN-BETWEEN) ------------------------
+        st.markdown("### 👥 Project Team")
+        cols = st.columns(4)
+        team_data = [
+            {"Name": "Om", "Role": "AI Model Development"},
+            {"Name": "Swati", "Role": "Feature Engineering"},
+            {"Name": "Jyoti", "Role": "Frontend Development"},
+            {"Name": "Srishti", "Role": "Frontend Development"}
+        ]
+        for col, member in zip(cols, team_data):
+            with col:
+                st.markdown(f"**{member['Name']}**")
+                st.markdown(f"*{member['Role']}*")
+
+        # ------------------------ DISPLAY PRODUCTS ------------------------
+        products = fetch_amazon_products(keyword, num_results=5)
+        product_cols = st.columns(5)
+        for col, p in zip(product_cols, products):
+            with col:
+                st.image(p["thumbnail"], use_column_width=True)
+                st.write(p["title"])
+                st.write(f"💰 Price: ₹{p['price']}")
+                st.markdown(f"[View Product]({p['link']})")
+
