@@ -48,14 +48,12 @@ st.markdown("---")
 
 # ------------------------ HELPER FUNCTIONS ------------------------
 def generate_sales_data(n=60):
-    """Simulate dummy sales data."""
     np.random.seed(42)
     base = np.linspace(50, 200, n)
     noise = np.random.normal(0, 5, n)
     return base + noise
 
 def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
-    """Predict trend using LSTM."""
     if len(series) < seq_len + 2:
         return np.array([])
 
@@ -87,7 +85,6 @@ def lstm_predict(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
     return scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
 
 def fetch_amazon_products(keyword, num_results=5):
-    """Simulate Amazon product data (replace with real API)."""
     product_names = {
         "Smartphone": ["Apple iPhone 16", "Samsung Galaxy S24", "Xiaomi 13 Pro", "OnePlus 12", "Google Pixel 9"],
         "Laptop": ["MacBook Pro 16", "Dell XPS 15", "HP Spectre x360", "Lenovo ThinkPad X1", "Asus ZenBook 14"],
@@ -101,7 +98,7 @@ def fetch_amazon_products(keyword, num_results=5):
     for name in names[:num_results]:
         products.append({
             "title": name,
-            "price": np.random.randint(30000, 150000) if keyword == "Smartphone" or keyword=="Laptop" else np.random.randint(2000, 50000),
+            "price": np.random.randint(30000, 150000) if keyword in ["Smartphone", "Laptop"] else np.random.randint(2000, 50000),
             "thumbnail": "https://via.placeholder.com/150",
             "link": "#"
         })
@@ -112,22 +109,35 @@ if predict_btn:
     for keyword in selected_categories:
         st.subheader(f"📈 Category: {keyword}")
 
+        # Create 2-column layout: left for charts, right for products
+        chart_col, product_col = st.columns([3, 1])
+
         # Simulate trend data
         sales_data = generate_sales_data()
-        st.line_chart(sales_data, height=200, use_container_width=True)
+        with chart_col:
+            st.line_chart(pd.DataFrame({
+                "Day": np.arange(1, len(sales_data)+1),
+                "Sales": sales_data
+            }).set_index("Day"), height=250, use_container_width=True)
+            st.write("**Actual Sales Trend**")
 
         # Predict trend
         pred = lstm_predict(sales_data, future_steps=future_days, seq_len=seq_len)
-        if pred.size > 0:
-            st.line_chart(pred, height=200, use_container_width=True)
-        else:
-            st.info("Not enough data to predict trend.")
+        with chart_col:
+            if pred.size > 0:
+                st.line_chart(pd.DataFrame({
+                    "Day": np.arange(len(sales_data)+1, len(sales_data)+1+len(pred)),
+                    "Predicted Sales": pred
+                }).set_index("Day"), height=250, use_container_width=True)
+                st.write("**Predicted Trend**")
+            else:
+                st.info("Not enough data to predict trend.")
 
-        # Display products in columns
-        products = fetch_amazon_products(keyword, num_results=5)
-        cols = st.columns(5)
-        for col, p in zip(cols, products):
-            with col:
+        # Display products on the right
+        with product_col:
+            st.write(f"🛒 Top Products for {keyword}:")
+            products = fetch_amazon_products(keyword, num_results=5)
+            for p in products:
                 st.image(p["thumbnail"], use_column_width=True)
                 st.write(p["title"])
                 st.write(f"💰 Price: ₹{p['price']}")
