@@ -10,10 +10,17 @@ import time
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
 st.title("🤖 AI-Powered Amazon Trending Product Dashboard")
 
-# ------------------------ USER INPUT ------------------------
+# ------------------------ CATEGORY SELECTION ------------------------
 categories = ["Smartphone", "Laptop", "Headphones", "Smartwatch", "Shoes", "Camera"]
-category = st.select_slider("Select product category:", options=categories)
+st.subheader("Select Product Category:")
 
+cols = st.columns(3)
+category_selected = None
+for idx, cat in enumerate(categories):
+    if cols[idx % 3].button(cat):
+        category_selected = cat
+
+# ------------------------ REGION & SETTINGS ------------------------
 region = st.selectbox("Region", ["Worldwide", "IN", "US"], index=1)
 timeframe = st.selectbox("Timeframe", ["today 3-m", "today 12-m"], index=0)
 top_products_count = st.slider("Number of top products to show:", min_value=1, max_value=10, value=5)
@@ -25,7 +32,7 @@ if not SERPAPI_KEY:
     st.warning("⚠️ Add your SerpApi API key in Streamlit secrets.")
     st.stop()
 
-# ------------------------ HELPER: AMAZON PRODUCTS ------------------------
+# ------------------------ HELPER FUNCTIONS ------------------------
 @st.cache_data(ttl=3600)
 def fetch_amazon_products(keyword, num_results=5):
     url = "https://serpapi.com/search"
@@ -51,7 +58,6 @@ def fetch_amazon_products(keyword, num_results=5):
         st.error(f"Error fetching products: {e}")
         return []
 
-# ------------------------ HELPER: GOOGLE TRENDS ------------------------
 @st.cache_data(ttl=3600)
 def get_google_trends(keyword, timeframe="today 3-m", region="IN"):
     pytrends = TrendReq()
@@ -68,9 +74,7 @@ def get_google_trends(keyword, timeframe="today 3-m", region="IN"):
             continue
     return trends_data
 
-# ------------------------ HELPER: TREND PREDICTION ------------------------
 def predict_trend(series, future_steps=7):
-    """Simple linear regression prediction."""
     y = series.values
     X = np.arange(len(y)).reshape(-1, 1)
     model = LinearRegression().fit(X, y)
@@ -78,28 +82,30 @@ def predict_trend(series, future_steps=7):
     pred = model.predict(future_X)
     return pred
 
-# ------------------------ DISPLAY ------------------------
-st.subheader(f"📈 Category: {category}")
+# ------------------------ RUN PREDICTION ------------------------
+if category_selected:
+    if st.button("▶️ Predict Trends & Fetch Products"):
+        st.subheader(f"📈 Category: {category_selected}")
 
-# Google Trends
-trends_df = get_google_trends(category, timeframe=timeframe, region=region)
-if not trends_df.empty:
-    st.line_chart(trends_df[category], height=250, use_container_width=True)
-    pred = predict_trend(trends_df[category])
-    st.line_chart(pd.DataFrame({f"{category} - Predicted Trend": pred}), height=200, use_container_width=True)
-else:
-    st.warning("No Google Trends data available.")
+        # Google Trends
+        trends_df = get_google_trends(category_selected, timeframe=timeframe, region=region)
+        if not trends_df.empty:
+            st.line_chart(trends_df[category_selected], height=250, use_container_width=True)
+            pred = predict_trend(trends_df[category_selected])
+            st.line_chart(pd.DataFrame({f"{category_selected} - Predicted Trend": pred}), height=200, use_container_width=True)
+        else:
+            st.warning("No Google Trends data available.")
 
-# Amazon Products
-products = fetch_amazon_products(category, num_results=top_products_count)
-if products:
-    st.write(f"🛒 Top {top_products_count} Amazon products for '{category}':")
-    cols = st.columns(3)
-    for idx, p in enumerate(products):
-        with cols[idx % 3]:
-            st.image(p["thumbnail"], use_column_width=True)
-            st.markdown(f"**{p['title']}**")
-            st.markdown(f"💰 Price: {p['price']}")
-            st.markdown(f"[View on Amazon]({p['link']})", unsafe_allow_html=True)
-else:
-    st.info("No products found.")
+        # Amazon Products
+        products = fetch_amazon_products(category_selected, num_results=top_products_count)
+        if products:
+            st.write(f"🛒 Top {top_products_count} Amazon products for '{category_selected}':")
+            cols_disp = st.columns(3)
+            for idx, p in enumerate(products):
+                with cols_disp[idx % 3]:
+                    st.image(p["thumbnail"], use_column_width=True)
+                    st.markdown(f"**{p['title']}**")
+                    st.markdown(f"💰 Price: {p['price']}")
+                    st.markdown(f"[View on Amazon]({p['link']})", unsafe_allow_html=True)
+        else:
+            st.info("No products found.")
