@@ -11,13 +11,22 @@ import time
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
 st.title("🤖 AI-Powered Amazon Trending Product Dashboard")
 # ------------------------ TEAM INFO ------------------------
-st.sidebar.header("👥 Project Team")
+# ------------------------ TEAM INFO (Middle / End) ------------------------
+st.markdown("---")
+st.subheader("👥 Project Team")
+
 team_data = [
     {"Name": "Om", "Role": "AI Model Development", "Details": "Responsible for building the LSTM prediction engine."},
-    {"Name": "Jyoti", "Role": "Frontend Development", "Details": "Handles Streamlit UI, sidebar, charts, and product display."},
+    {"Name": "Jyoti", "Role": "Frontend Development", "Details": "Handles Streamlit UI, charts, and product display."},
     {"Name": "Srishti", "Role": "Frontend Development", "Details": "Collaborates on UI/UX, layout, and user interactivity."},
     {"Name": "Swati", "Role": "Feature Engineering", "Details": "Prepares and simulates sales data, sequences for LSTM, preprocessing."}
 ]
+
+for member in team_data:
+    st.markdown(f"**{member['Name']}** - {member['Role']}")
+    st.markdown(f"*{member['Details']}*")
+    st.markdown("---")
+
 
 for member in team_data:
     st.sidebar.markdown(f"**{member['Name']}** - {member['Role']}")
