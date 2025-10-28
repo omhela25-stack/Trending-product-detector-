@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
-import time
 
 # ------------------------ PAGE CONFIG ------------------------
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
@@ -89,45 +88,31 @@ if predict_btn:
         else:
             st.info("Not enough data to predict trend.")
 
-        # Display products
+        # ------------------------ TEAM INFO (VISUAL CARDS) ------------------------
+        st.markdown("### 👥 Project Team")
+        team_cols = st.columns(4)
+        team_data = [
+            {"Name": "Om", "Role": "AI Model Development", "Color": "#FFB347", "Icon": "🤖"},
+            {"Name": "Swati", "Role": "Feature Engineering", "Color": "#77DD77", "Icon": "🛠️"},
+            {"Name": "Jyoti", "Role": "Frontend Development", "Color": "#89CFF0", "Icon": "💻"},
+            {"Name": "Srishti", "Role": "Frontend Development", "Color": "#FF6961", "Icon": "🎨"}
+        ]
+        for col, member in zip(team_cols, team_data):
+            with col:
+                st.markdown(
+                    f"<div style='background-color:{member['Color']}; padding:15px; border-radius:10px; text-align:center'>"
+                    f"<h3>{member['Icon']} {member['Name']}</h3>"
+                    f"<p><i>{member['Role']}</i></p>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+        # ------------------------ DISPLAY PRODUCTS ------------------------
         products = fetch_amazon_products(keyword, num_results=5)
-        cols = st.columns(5)
-        for col, p in zip(cols, products):
+        product_cols = st.columns(5)
+        for col, p in zip(product_cols, products):
             with col:
                 st.image(p["thumbnail"], use_column_width=True)
                 st.write(p["title"])
                 st.write(f"💰 Price: ₹{p['price']}")
                 st.markdown(f"[View Product]({p['link']})")
-
-# ------------------------ TEAM INFO ------------------------
-# ------------------------ MAIN DISPLAY ------------------------
-if predict_btn:
-    for keyword in selected_categories:
-        st.subheader(f"📈 Category: {keyword}")
-
-        # Simulate trend data
-        sales_data = generate_sales_data()
-        st.line_chart(sales_data, height=200, use_container_width=True)
-
-        # Predict trend
-        pred = lstm_predict(sales_data, future_steps=future_days, seq_len=seq_len)
-        if pred.size > 0:
-            st.line_chart(pred, height=200, use_container_width=True)
-        else:
-            st.info("Not enough data to predict trend.")
-
-        # ------------------------ TEAM INFO (IN-BETWEEN) ------------------------
-        st.markdown("### 👥 Project Team")
-        cols = st.columns(4)
-        team_data = [
-            {"Name": "Om", "Role": "AI Model Development"},
-            {"Name": "Swati", "Role": "Feature Engineering"},
-            {"Name": "Jyoti", "Role": "Frontend Development"},
-            {"Name": "Srishti", "Role": "Frontend Development"}
-        ]
-        for col, member in zip(cols, team_data):
-            with col:
-                st.markdown(f"**{member['Name']}**")
-                st.markdown(f"*{member['Role']}*")
-
-       
