@@ -3,12 +3,14 @@ import pandas as pd
 import numpy as np
 import requests
 from pytrends.request import TrendReq
-from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
 import time
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="AI Amazon Trending Detector", layout="wide")
-st.title("🤖 AI-Powered Amazon Trending Product Dashboard")
+st.title("🤖 AI-Powered Amazon Trending Product Dashboard (LSTM)")
 
 # ---------------- SIDEBAR INPUT ----------------
 st.sidebar.header("Settings")
@@ -21,8 +23,8 @@ keywords_list = [k.strip() for k in keywords.split(",") if k.strip()]
 region = st.sidebar.selectbox("Region", ["Worldwide", "IN", "US"], index=1)
 timeframe = st.sidebar.selectbox("Timeframe", ["today 3-m", "today 12-m"], index=0)
 top_products_count = st.sidebar.slider("Top products to display:", 1, 10, 5)
-
 SERPAPI_KEY = st.sidebar.text_input("SerpApi API Key", type="password")
+
 if not SERPAPI_KEY:
     st.warning("⚠️ Enter your SerpApi key to fetch products")
     st.stop()
@@ -69,42 +71,25 @@ def get_google_trends(keyword, timeframe="today 3-m", region="IN"):
             continue
     return trends_data
 
-def predict_trend(series, future_steps=7):
-    if len(series) < 2:
+# ---------------- LSTM PREDICTION ----------------
+def predict_trend_lstm(series, future_steps=7, seq_len=14, epochs=10, batch_size=4):
+    """Predict trend using LSTM."""
+    if len(series) < seq_len + 2:
         return np.array([])
-    y = series.values
-    X = np.arange(len(y)).reshape(-1, 1)
-    model = LinearRegression().fit(X, y)
-    future_X = np.arange(len(y), len(y) + future_steps).reshape(-1, 1)
-    pred = model.predict(future_X)
-    return pred
 
-# ---------------- RUN PREDICTION ----------------
-if st.button("▶️ Predict Trends & Fetch Products"):
-    for keyword in keywords_list:
-        st.subheader(f"📈 Keyword: {keyword}")
+    data = series.values[-(seq_len*3):].reshape(-1,1)
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(data)
 
-        # Google Trends
-        trends_df = get_google_trends(keyword, timeframe=timeframe, region=region)
-        if not trends_df.empty:
-            st.line_chart(trends_df[keyword], height=250)
-            pred = predict_trend(trends_df[keyword])
-            if len(pred) > 0:
-                st.line_chart(pd.DataFrame({f"{keyword} - Predicted Trend": pred}), height=200)
-        else:
-            st.warning(f"No Google Trends data found for '{keyword}' in {region}.")
+    X, y = [], []
+    for i in range(seq_len, len(scaled)):
+        X.append(scaled[i-seq_len:i,0])
+        y.append(scaled[i,0])
+    X, y = np.array(X), np.array(y)
+    X = X.reshape((X.shape[0], X.shape[1], 1))
 
-        # Amazon Products
-        products = fetch_amazon_products(keyword, num_results=top_products_count)
-        if products:
-            st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}':")
-            cols_disp = st.columns(3)
-            for idx, p in enumerate(products):
-                with cols_disp[idx % 3]:
-                    if p["thumbnail"]:
-                        st.image(p["thumbnail"], use_column_width=True)
-                    st.markdown(f"**{p['title']}**")
-                    st.markdown(f"💰 Price: {p['price']}")
-                    st.markdown(f"[View on Amazon]({p['link']})", unsafe_allow_html=True)
-        else:
-            st.info("No products found.")
+    model = Sequential()
+    model.add(LSTM(32, input_shape=(X.shape[1],1)))
+    model.add(Dense(1))
+    model.compile(optimizer="adam", loss="mse")
+    model.fit(X, y
