@@ -130,13 +130,4 @@ if predict_btn:
                 st.markdown(f"**{member['Name']}**")
                 st.markdown(f"*{member['Role']}*")
 
-        # ------------------------ DISPLAY PRODUCTS ------------------------
-        products = fetch_amazon_products(keyword, num_results=5)
-        product_cols = st.columns(5)
-        for col, p in zip(product_cols, products):
-            with col:
-                st.image(p["thumbnail"], use_column_width=True)
-                st.write(p["title"])
-                st.write(f"💰 Price: ₹{p['price']}")
-                st.markdown(f"[View Product]({p['link']})")
-
+       
