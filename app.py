@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 import requests
 from pytrends.request import TrendReq
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from sklearn.linear_model import LinearRegression
 import time
 
 # ------------------------ PAGE CONFIG ------------------------
@@ -27,7 +25,6 @@ top_products_count = st.sidebar.number_input(
 
 # ------------------------ TEST API KEY ------------------------
 def test_api_key(api_key):
-    """Verify Rainforest API key."""
     try:
         r = requests.get(
             "https://api.rainforestapi.com/request",
@@ -44,7 +41,6 @@ def test_api_key(api_key):
     except Exception:
         return False
 
-
 if not api_key:
     st.warning("⚠️ Enter your Rainforest API key.")
     st.stop()
@@ -57,7 +53,6 @@ else:
 # ------------------------ AMAZON API HELPER ------------------------
 @st.cache_data(ttl=3600)
 def get_amazon_products(api_key, keyword, country_domain="amazon.in", max_results=5):
-    """Fetch product data from Amazon using Rainforest API."""
     try:
         r = requests.get(
             "https://api.rainforestapi.com/request",
@@ -82,7 +77,7 @@ def get_amazon_products(api_key, keyword, country_domain="amazon.in", max_result
             price_raw = item.get("price", {}).get("raw")
             if price_raw:
                 try:
-                    price = float(price_raw.replace("₹", "").replace(",", "").split()[0])
+                    price = float(price_raw.replace("₹","").replace(",","").split()[0])
                 except Exception:
                     price = np.nan
             else:
@@ -91,8 +86,8 @@ def get_amazon_products(api_key, keyword, country_domain="amazon.in", max_result
             rows.append({
                 "Title": item.get("title"),
                 "Price (INR)": price,
-                "Rating": float(item.get("rating", 0)),
-                "Reviews": int(item.get("ratings_total", 0)),
+                "Rating": float(item.get("rating",0)),
+                "Reviews": int(item.get("ratings_total",0)),
                 "Link": item.get("link"),
             })
 
@@ -100,79 +95,51 @@ def get_amazon_products(api_key, keyword, country_domain="amazon.in", max_result
     except Exception:
         return pd.DataFrame()
 
-# ------------------------ LSTM TREND PREDICTION ------------------------
-def predict_trend_lstm(series, future_steps=7, seq_len=14, epochs=5, batch_size=8):
-    """Predict short-term trend using LSTM."""
-    if len(series) < seq_len + 2:
-        return np.array([])
-
-    series = series[-(seq_len * 3):]
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(series.values.reshape(-1, 1))
-
-    X, y = [], []
-    for i in range(seq_len, len(scaled_data)):
-        X.append(scaled_data[i - seq_len:i, 0])
-        y.append(scaled_data[i, 0])
-    X, y = np.array(X), np.array(y)
-    X = X.reshape(X.shape[0], X.shape[1], 1)
-
-    model = Sequential()
-    model.add(LSTM(25, input_shape=(X.shape[1], 1)))
-    model.add(Dense(1))
-    model.compile(optimizer="adam", loss="mse")
-    model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
-
-    predictions = []
-    current_seq = X[-1]
-    for _ in range(future_steps):
-        pred = model.predict(current_seq.reshape(1, seq_len, 1), verbose=0)[0, 0]
-        predictions.append(pred)
-        current_seq = np.append(current_seq[1:], [[pred]], axis=0)
-
-    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
+# ------------------------ LINEAR TREND PREDICTION ------------------------
+def predict_trend_linear(series, future_steps=7):
+    y = series.values
+    if len(y) < 2:
+        return np.array([y[-1] if len(y) else 0]*future_steps)
+    X = np.arange(len(y)).reshape(-1,1)
+    model = LinearRegression().fit(X, y)
+    X_future = np.arange(len(y), len(y)+future_steps).reshape(-1,1)
+    return model.predict(X_future)
 
 # ------------------------ GOOGLE TRENDS ------------------------
 @st.cache_data(ttl=3600)
 def get_google_trends(keywords, timeframe="today 3-m", region="IN"):
-    """Fetch Google Trends data safely with retries."""
     pytrends = TrendReq()
     trends_data = pd.DataFrame()
-
-    for attempt in range(3):
+    for _ in range(3):
         try:
-            pytrends.build_payload(keywords, timeframe=timeframe, geo=region)
+            pytrends.build_payload(keywords, timeframe=timeframe, geo=region if region!="Worldwide" else "")
             trends_data = pytrends.interest_over_time()
             if not trends_data.empty and "isPartial" in trends_data.columns:
                 trends_data = trends_data.drop(columns=["isPartial"])
             break
         except Exception:
-            time.sleep(2)
-            continue
-
+            time.sleep(1)
     return trends_data
 
 # ------------------------ DISPLAY RESULTS ------------------------
-for keyword in keywords_list:
-    st.subheader(f"📈 Keyword: {keyword}")
+if st.button("Run Analysis"):
+    if not keywords_list:
+        st.warning("Enter at least one keyword.")
+    for keyword in keywords_list:
+        st.subheader(f"📈 Keyword: {keyword}")
 
-    trends_df = get_google_trends([keyword], timeframe=timeframe, region=region)
+        trends_df = get_google_trends([keyword], timeframe=timeframe, region=region)
+        if trends_df.empty:
+            st.warning(f"No Google Trends data for '{keyword}' in {region}.")
+        else:
+            st.line_chart(trends_df[keyword])
 
-    if trends_df.empty:
-        st.warning(f"No Google Trends data found for '{keyword}' in {region}.")
-        continue
+            pred = predict_trend_linear(trends_df[keyword])
+            st.line_chart(pd.DataFrame({f"{keyword} - predicted": pred}))
 
-    st.line_chart(trends_df[keyword])
-
-    pred = predict_trend_lstm(trends_df[keyword])
-    if pred.size > 0:
-        st.line_chart(pd.DataFrame({f"{keyword} - predicted": pred}))
-    else:
-        st.info("Not enough data for prediction.")
-
-    amazon_df = get_amazon_products(api_key, keyword, max_results=top_products_count)
-    if not amazon_df.empty:
-        st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}':")
-        st.dataframe(amazon_df)
-    else:
-        st.info(f"No products found for '{keyword}'.")
+        amazon_df = get_amazon_products(api_key, keyword, max_results=top_products_count)
+        if not amazon_df.empty:
+            st.write(f"🛒 Top {top_products_count} Amazon products for '{keyword}':")
+            st.dataframe(amazon_df)
+        else:
+            st.info(f"No products found for '{keyword}'.")
