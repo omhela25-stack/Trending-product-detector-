@@ -456,16 +456,27 @@ def render_stock_predictor():
     # 1. Sidebar Controls for this module
     st.sidebar.markdown("### Stock Settings")
     
-    # NEW: SLIDER FOR STOCK BRAND SELECTION (Requested Feature)
-    stock_options = [
-        "Apple (AAPL)", "Tesla (TSLA)", "Microsoft (MSFT)", "Google (GOOGL)",
-        "Amazon (AMZN)", "Nvidia (NVDA)", "Reliance (RELIANCE.NS)", "TCS (TCS.NS)",
-        "Infosys (INFY.NS)", "HDFC Bank (HDFCBANK.NS)"
-    ]
-    selected_stock_brand = st.sidebar.select_slider("Select Stock Brand", options=stock_options)
-    
-    # Parse ticker from selection "Name (TICKER)" -> "TICKER"
-    ticker = selected_stock_brand.split("(")[1].replace(")", "")
+    # NEW: Searchable Selectbox for Stocks (Google-like Search)
+    STOCK_MAP = {
+        "Apple Inc. (AAPL)": "AAPL",
+        "Tesla Inc. (TSLA)": "TSLA",
+        "Microsoft Corp. (MSFT)": "MSFT",
+        "Amazon.com (AMZN)": "AMZN",
+        "Google (GOOGL)": "GOOGL",
+        "Nvidia Corp. (NVDA)": "NVDA",
+        "Meta Platforms (META)": "META",
+        "Netflix (NFLX)": "NFLX",
+        "Reliance Industries (RELIANCE.NS)": "RELIANCE.NS",
+        "Tata Consultancy Svc (TCS.NS)": "TCS.NS",
+        "HDFC Bank (HDFCBANK.NS)": "HDFCBANK.NS",
+        "Infosys (INFY.NS)": "INFY.NS",
+        "ICICI Bank (ICICIBANK.NS)": "ICICIBANK.NS",
+        "Bitcoin (BTC-USD)": "BTC-USD",
+        "Ethereum (ETH-USD)": "ETH-USD"
+    }
+
+    selected_key = st.sidebar.selectbox("Search or Select Brand", options=list(STOCK_MAP.keys()), index=0)
+    ticker = STOCK_MAP[selected_key]
     
     period = st.sidebar.select_slider("Data Range", ["6mo", "1y", "2y", "5y", "max"], value="2y")
     
