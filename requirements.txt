@@ -1,8 +1,8 @@
-streamlit==1.29.0
+streamlit
 pandas
 numpy
-requests
-scikit-learn
-pytrends
-tensorflow
+yfinance
 plotly
+matplotlib
+scikit-learn
+requests
