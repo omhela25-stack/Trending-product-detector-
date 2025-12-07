@@ -17,7 +17,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
 # Try importing TensorFlow/Keras for LSTM
-# If not installed, we use a math fallback so the app doesn't crash
 try:
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -456,7 +455,18 @@ def render_stock_predictor():
     
     # 1. Sidebar Controls for this module
     st.sidebar.markdown("### Stock Settings")
-    ticker = st.sidebar.text_input("Enter Ticker", "AAPL").upper()
+    
+    # NEW: SLIDER FOR STOCK BRAND SELECTION (Requested Feature)
+    stock_options = [
+        "Apple (AAPL)", "Tesla (TSLA)", "Microsoft (MSFT)", "Google (GOOGL)",
+        "Amazon (AMZN)", "Nvidia (NVDA)", "Reliance (RELIANCE.NS)", "TCS (TCS.NS)",
+        "Infosys (INFY.NS)", "HDFC Bank (HDFCBANK.NS)"
+    ]
+    selected_stock_brand = st.sidebar.select_slider("Select Stock Brand", options=stock_options)
+    
+    # Parse ticker from selection "Name (TICKER)" -> "TICKER"
+    ticker = selected_stock_brand.split("(")[1].replace(")", "")
+    
     period = st.sidebar.select_slider("Data Range", ["6mo", "1y", "2y", "5y", "max"], value="2y")
     
     # 2. Main Execution
