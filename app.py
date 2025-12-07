@@ -285,8 +285,9 @@ class AmazonTrendPredictor:
                 pred = model.predict(current_batch, verbose=0)[0]
                 predictions.append(pred)
                 current_batch = np.append(current_batch[:, 1:, :], [[pred]], axis=1)
-                
-            predictions = self.scaler.inverse_transform(np.array(predictions))
+            
+            # --- FIX: Flatten the array to avoid TypeError in metric display ---
+            predictions = self.scaler.inverse_transform(np.array(predictions)).flatten()
         else:
             # Advanced Mathematical Projection (Fallback)
             last_val = dataset[-1][0]
@@ -420,7 +421,10 @@ def render_amazon_dashboard():
                 
                 # D. Analysis Metrics
                 avg_sales = hist_df['Sales'].mean()
-                predicted_peak = max(predictions)
+                
+                # --- FIX: Ensure predicted_peak is a scalar float ---
+                predicted_peak = float(np.max(predictions))
+                
                 growth = ((predicted_peak - avg_sales) / avg_sales) * 100
                 
                 m1, m2, m3, m4 = st.columns(4)
