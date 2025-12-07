@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -259,7 +259,7 @@ def prepare_features(df, ma1=20, ma2=50):
 
 def render_stock_predictor():
     st.title("📈 Pro Stock Predictor")
-    st.markdown("### technical Analysis & Machine Learning Forecast")
+    st.markdown("### Technical Analysis & Machine Learning Forecast")
     
     # Sidebar
     st.sidebar.subheader("Stock Config")
